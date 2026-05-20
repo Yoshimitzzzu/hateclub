@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hate club</title>
+    <link href="vessel.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="page">
+        <div class="page-title">
+            <div class="page-title-name">
+                hate club
+            </div>
+            <div class="page-title-creator">
+                powered by <span id="page-title-nick">Yoshimitzzzu</span>
+            </div> 
+        </div>
+        <div class="page-auth">
+            <section class="page-auth-login">
+                <div id="login">Вход</div>
+                <form action="#" class="page-auth-login-form">
+                    <label for="login-form-number">Телефон </label>
+                    <input
+                        name="number"
+                        id="login-form-number"
+                        placeholder="+79676767676"
+                    />
+                    <label for="login-form-passwd">Пароль </label>
+                    <input
+                        name="passwd"
+                        id="login-form-passwd"
+                        placeholder="goida"
+                    />
+                    <button type="submit">Войти</button>
+                </form>
+            </section>
+            <section class="page-auth-reg">
+                <div id="reg">Регистрация</div>
+                <form action="#" class="page-auth-reg-form">
+                    <label for="reg-form-id">Айди пользователя </label>
+                    <input
+                        name="id"
+                        id="reg-form-id"
+                        placeholder="govnovoz2000"
+                    />
+                    <span class="reg-form-comment">Только английские буквы</span>
+                    <label for="reg-form-number">Телефон </label>
+                    <input
+                        name="number"
+                        id="reg-form-number"
+                        placeholder="+79676767676"
+                    />
+                    <label for="reg-form-mail">Почта </label>
+                    <input
+                        name="mail"
+                        id="reg-form-mail"
+                        placeholder="mayonez@mail.ru"
+                    />
+                    <label for="reg-form-passwd">Пароль </label>
+                    <input
+                        name="passwd"
+                        id="reg-form-passwd"
+                        placeholder="goida"
+                    />
+                    <button type="submit">Зарегистрироваться</button>
+                </form>
+            </section>
+        </div>
+    </div>
+    <script src="vessel.js"></script>
+</body>
+</html>
