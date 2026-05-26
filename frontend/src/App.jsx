@@ -1,62 +1,184 @@
-import { useEffect, useState } from "react";
-import { socket } from "./socket";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
+import { useEffect, useRef, useState } from "react";
+
+import { socket } from "./socket/socket";
+
+import "./styles/global.css";
+
+import JoinPage from "./pages/JoinPage";
+import ChatPage from "./pages/ChatPage";
+import Auth from "./pages/Auth";
 
 function App() {
+  const [username, setUsername] = useState(
+    localStorage.getItem("username") || ""
+  );
+
+  const [room, setRoom] = useState(
+    localStorage.getItem("room") || ""
+  );
+
+  const [joined, setJoined] = useState(
+    localStorage.getItem("joined") === "true"
+  );
+
+  const [token, setToken] = useState(
+    localStorage.getItem("token") || ""
+  );
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
 
-  useEffect(() => {
-    socket.on("connect", () => {
-      console.log("Connected:", socket.id);
-    });
+  const messagesEndRef = useRef(null);
 
+  const rooms = [
+    "general",
+    "friends",
+    "games",
+    "music",
+    "coding",
+  ];
+
+  useEffect(() => {
     socket.on("receive_message", (data) => {
-      console.log("Received:", data);
       setMessages((prev) => [...prev, data]);
     });
 
+    socket.on("load_messages", (data) => {
+      setMessages(data);
+    });
+
     return () => {
-      socket.off("connect");
       socket.off("receive_message");
+      socket.off("load_messages");
     };
   }, []);
+
+  useEffect(() => {
+    if (joined && username && room) {
+      socket.emit("join_room", {
+        room,
+        username,
+      });
+    }
+  }, [joined, username, room]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    });
+  }, [messages]);
+
+  const joinChat = () => {
+    if (!username.trim()) return;
+    if (!room.trim()) return;
+
+    socket.emit("join_room", {
+      room,
+      username,
+    });
+
+    localStorage.setItem("username", username);
+    localStorage.setItem("room", room);
+    localStorage.setItem("joined", "true");
+
+    setJoined(true);
+  };
+
+  const changeRoom = (newRoom) => {
+    setMessages([]);
+
+    socket.emit("join_room", {
+      room: newRoom,
+      username,
+    });
+
+    setRoom(newRoom);
+  };
 
   const sendMessage = () => {
     if (!message.trim()) return;
 
-    socket.emit("send_message", {
+    const data = {
+      room,
+      username,
       text: message,
       time: new Date().toLocaleTimeString(),
-    });
+    };
+
+    socket.emit("send_message", data);
 
     setMessage("");
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>Mini Messenger</h1>
+    <BrowserRouter>
+      <Routes>
 
-      <div style={{ marginBottom: 10 }}>
-        <input
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type message..."
-          style={{ padding: 8, width: 200 }}
+        {/* LOGIN ROUTE */}
+        <Route
+          path="/login"
+          element={
+            token ? (
+              <Navigate to="/chat" />
+            ) : (
+              <Auth setToken={setToken} />
+            )
+          }
         />
 
-        <button onClick={sendMessage} style={{ marginLeft: 10, padding: 8 }}>
-          Send
-        </button>
-      </div>
+        {/* ROOT */}
+        <Route
+          path="/"
+          element={
+            token ? (
+              <Navigate to="/chat" />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
 
-      <div>
-        {messages.map((msg, i) => (
-          <div key={i} style={{ marginBottom: 5 }}>
-            <b>{msg.time}</b>: {msg.text}
-          </div>
-        ))}
-      </div>
-    </div>
+        {/* CHAT */}
+        <Route
+          path="/chat"
+          element={
+            token ? (
+              joined ? (
+                <ChatPage
+                  rooms={rooms}
+                  room={room}
+                  changeRoom={changeRoom}
+                  username={username}
+                  messages={messages}
+                  message={message}
+                  setMessage={setMessage}
+                  sendMessage={sendMessage}
+                  messagesEndRef={messagesEndRef}
+                />
+              ) : (
+                <JoinPage
+                  username={username}
+                  setUsername={setUsername}
+                  room={room}
+                  setRoom={setRoom}
+                  joinChat={joinChat}
+                />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+
+      </Routes>
+    </BrowserRouter>
   );
 }
 
