@@ -1,89 +1,126 @@
 import { useState } from "react";
 
-function Auth({ setToken }) {
+function Auth({
+  setToken,
+  setUsername,
+}) {
   const [isLogin, setIsLogin] = useState(true);
 
-  const [username, setUsername] = useState("");
+  const [username, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
 
+  const [success, setSuccess] = useState("");
+  const [error, setError] = useState("");
+
   const submit = async () => {
-  console.log("CLICKED");
+    setError("");
+    setSuccess("");
 
-  const url = isLogin
-    ? "http://localhost:3000/auth/login"
-    : "http://localhost:3000/auth/register";
+    const url = isLogin
+      ? "http://localhost:3000/auth/login"
+      : "http://localhost:3000/auth/register";
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    });
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    console.log("RESPONSE:", data);
+      if (data.error) {
+        setError(data.error);
+        return;
+      }
 
-    if (isLogin && data.token) {
-      localStorage.setItem("token", data.token);
-      setToken(data.token);
+      if (isLogin && data.token) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("username", username);
+
+        setToken(data.token);
+        setUsername(username);
+      }
+
+      if (!isLogin && data.success) {
+        setSuccess("Account created successfully");
+        setIsLogin(true);
+      }
+
+    } catch (err) {
+      setError("Server error");
     }
-
-    if (!isLogin && data.success) {
-      setIsLogin(true);
-    }
-
-  } catch (err) {
-    console.log("ERROR:", err);
-  }
-};
+  };
 
   return (
     <div className="auth-container">
+
       <div className="auth-box">
 
-        <h1 className="logo">Mini Messenger</h1>
-
-        <div className="tabs">
+        <div className="auth-tabs">
           <button
-            className={isLogin ? "active" : ""}
+            className={isLogin ? "active-tab" : ""}
             onClick={() => setIsLogin(true)}
           >
             Login
           </button>
 
           <button
-            className={!isLogin ? "active" : ""}
+            className={!isLogin ? "active-tab" : ""}
             onClick={() => setIsLogin(false)}
           >
             Register
           </button>
         </div>
 
+        <h1>
+          {isLogin ? "Welcome back" : "Create account"}
+        </h1>
+
+        {success && (
+          <div className="success-msg">
+            {success}
+          </div>
+        )}
+
+        {error && (
+          <div className="error-msg">
+            {error}
+          </div>
+        )}
+
         <input
-          placeholder="username"
+          type="text"
+          placeholder="Username"
           value={username}
           onChange={(e) =>
-            setUsername(e.target.value)
+            setUsernameInput(e.target.value)
           }
         />
 
         <input
           type="password"
-          placeholder="password"
+          placeholder="Password"
           value={password}
           onChange={(e) =>
             setPassword(e.target.value)
           }
         />
 
-        <button className="primary" onClick={submit}>
-          {isLogin ? "Login" : "Create account"}
+        <button
+          className="auth-submit"
+          onClick={submit}
+        >
+          {isLogin ? "Login" : "Register"}
         </button>
 
       </div>
+
     </div>
   );
 }

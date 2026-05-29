@@ -5,179 +5,276 @@ import {
   Navigate,
 } from "react-router-dom";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { socket } from "./socket/socket";
+import { createSocket } from "./socket/socket";
 
 import "./styles/global.css";
 
-import JoinPage from "./pages/JoinPage";
-import ChatPage from "./pages/ChatPage";
 import Auth from "./pages/Auth";
+import ChatPage from "./pages/ChatPage";
 
 function App() {
-  const [username, setUsername] = useState(
-    localStorage.getItem("username") || ""
-  );
-
-  const [room, setRoom] = useState(
-    localStorage.getItem("room") || ""
-  );
-
-  const [joined, setJoined] = useState(
-    localStorage.getItem("joined") === "true"
-  );
 
   const [token, setToken] = useState(
     localStorage.getItem("token") || ""
   );
 
+  const [username, setUsername] = useState(
+    localStorage.getItem("username") || ""
+  );
+
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
+
+  const [dmMessages, setDmMessages] = useState([]);
+
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  const [typingUsers, setTypingUsers] = useState([]);
+
+  const [selectedUser, setSelectedUser] = useState(null);
 
   const messagesEndRef = useRef(null);
 
-  const rooms = [
-    "general",
-    "friends",
-    "games",
-    "music",
-    "coding",
-  ];
+  const socketRef = useRef(null);
 
+  // ================= SOCKET =================
   useEffect(() => {
-    socket.on("receive_message", (data) => {
-      setMessages((prev) => [...prev, data]);
-    });
 
-    socket.on("load_messages", (data) => {
-      setMessages(data);
-    });
+    if (!token) return;
+
+    socketRef.current = createSocket();
+
+    // ================= ONLINE USERS =================
+    socketRef.current.on(
+      "online_users",
+      (users) => {
+
+        setOnlineUsers(users);
+      }
+    );
+
+    // ================= DM HISTORY =================
+    socketRef.current.on(
+      "dm_history",
+      (data) => {
+
+        setDmMessages(data);
+      }
+    );
+
+    // ================= RECEIVE MESSAGE =================
+    socketRef.current.on(
+      "receive_dm",
+      (msg) => {
+
+        setDmMessages((prev) => [
+          ...prev,
+          msg,
+        ]);
+      }
+    );
+
+    // ================= TYPING =================
+    socketRef.current.on(
+      "user_typing",
+      (user) => {
+
+        setTypingUsers((prev) => {
+
+          if (prev.includes(user)) {
+            return prev;
+          }
+
+          return [...prev, user];
+        });
+      }
+    );
+
+    socketRef.current.on(
+      "user_stop_typing",
+      (user) => {
+
+        setTypingUsers((prev) =>
+          prev.filter(
+            (u) => u !== user
+          )
+        );
+      }
+    );
 
     return () => {
-      socket.off("receive_message");
-      socket.off("load_messages");
+
+      socketRef.current?.off(
+        "online_users"
+      );
+
+      socketRef.current?.off(
+        "dm_history"
+      );
+
+      socketRef.current?.off(
+        "receive_dm"
+      );
+
+      socketRef.current?.off(
+        "user_typing"
+      );
+
+      socketRef.current?.off(
+        "user_stop_typing"
+      );
+
+      socketRef.current?.disconnect();
     };
-  }, []);
 
-  useEffect(() => {
-    if (joined && username && room) {
-      socket.emit("join_room", {
-        room,
-        username,
-      });
-    }
-  }, [joined, username, room]);
+  }, [token]);
 
+  // ================= OPEN DM =================
   useEffect(() => {
+
+    if (!selectedUser) return;
+
+    socketRef.current.emit(
+      "join_dm",
+      {
+        to: selectedUser,
+      }
+    );
+
+    socketRef.current.emit(
+      "load_dm",
+      {
+        to: selectedUser,
+      }
+    );
+
+    setTypingUsers([]);
+
+  }, [selectedUser]);
+
+  // ================= AUTO SCROLL =================
+  useEffect(() => {
+
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  }, [messages]);
 
-  const joinChat = () => {
-    if (!username.trim()) return;
-    if (!room.trim()) return;
+  }, [dmMessages]);
 
-    socket.emit("join_room", {
-      room,
-      username,
-    });
-
-    localStorage.setItem("username", username);
-    localStorage.setItem("room", room);
-    localStorage.setItem("joined", "true");
-
-    setJoined(true);
-  };
-
-  const changeRoom = (newRoom) => {
-    setMessages([]);
-
-    socket.emit("join_room", {
-      room: newRoom,
-      username,
-    });
-
-    setRoom(newRoom);
-  };
-
+  // ================= SEND MESSAGE =================
   const sendMessage = () => {
-    if (!message.trim()) return;
 
-    const data = {
-      room,
-      username,
-      text: message,
-      time: new Date().toLocaleTimeString(),
-    };
+    if (
+      !message.trim() ||
+      !selectedUser
+    ) return;
 
-    socket.emit("send_message", data);
+    const now = new Date();
+
+    socketRef.current.emit(
+      "send_dm",
+      {
+        to: selectedUser,
+
+        text: message,
+
+        time: now.toLocaleTimeString(
+          [],
+          {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }
+        ),
+
+        date: now.toLocaleDateString(
+          "ru-RU"
+        ),
+      }
+    );
+
+    socketRef.current.emit(
+      "stop_typing",
+      {
+        to: selectedUser,
+      }
+    );
 
     setMessage("");
   };
 
+  // ================= LOGOUT =================
+  const logout = () => {
+
+    socketRef.current?.disconnect();
+
+    localStorage.clear();
+
+    setDmMessages([]);
+
+    window.location.reload();
+  };
+
   return (
+
     <BrowserRouter>
+
       <Routes>
 
-        {/* LOGIN ROUTE */}
-        <Route
-          path="/login"
-          element={
-            token ? (
-              <Navigate to="/chat" />
-            ) : (
-              <Auth setToken={setToken} />
-            )
-          }
-        />
-
-        {/* ROOT */}
         <Route
           path="/"
           element={
             token ? (
               <Navigate to="/chat" />
             ) : (
-              <Navigate to="/login" />
+              <Auth
+                setToken={setToken}
+                setUsername={setUsername}
+              />
             )
           }
         />
 
-        {/* CHAT */}
         <Route
           path="/chat"
           element={
             token ? (
-              joined ? (
-                <ChatPage
-                  rooms={rooms}
-                  room={room}
-                  changeRoom={changeRoom}
-                  username={username}
-                  messages={messages}
-                  message={message}
-                  setMessage={setMessage}
-                  sendMessage={sendMessage}
-                  messagesEndRef={messagesEndRef}
-                />
-              ) : (
-                <JoinPage
-                  username={username}
-                  setUsername={setUsername}
-                  room={room}
-                  setRoom={setRoom}
-                  joinChat={joinChat}
-                />
-              )
+              <ChatPage
+                username={username}
+
+                message={message}
+                setMessage={setMessage}
+
+                sendMessage={sendMessage}
+
+                messages={dmMessages}
+
+                messagesEndRef={messagesEndRef}
+
+                onlineUsers={onlineUsers}
+
+                typingUsers={typingUsers}
+
+                selectedUser={selectedUser}
+                setSelectedUser={setSelectedUser}
+
+                socketRef={socketRef}
+
+                logout={logout}
+              />
             ) : (
-              <Navigate to="/login" />
+              <Navigate to="/" />
             )
           }
         />
 
       </Routes>
+
     </BrowserRouter>
   );
 }
